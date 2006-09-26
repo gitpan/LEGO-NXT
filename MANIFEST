@@ -1,0 +1,8 @@
+MANIFEST
+META.yml
+Makefile.PL
+README
+lib/LEGO/NXT.pm
+test.pl
+t/00_pod.t
+t/00_basic.t
