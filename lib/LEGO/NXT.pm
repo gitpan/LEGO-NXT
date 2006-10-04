@@ -19,18 +19,21 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 #
-# You may also distribute under the terms of Perl Artistic License, 
+# You may also distribute under the terms of Perl Artistic License,
 # as specified in the Perl README file.
 #
 
 package LEGO::NXT;
 use strict;
+use warnings;
 
 use Net::Bluetooth;
-use Exporter qw( import );
+#Not ready for USB yet...
+#use Device::USB;
+use LEGO::NXT::Constants;
 
-our $VERSION = '1.41000';
-our @EXPORT;
+our $VERSION = '1.42';
+our @ISA;
 
 =head1 NAME
 
@@ -70,223 +73,35 @@ Users will leverage this API to control the NXT directly from an external box.
 This is known to work on Linux. Other platforms are currently untested,
 though it should work on any system that has the Net::Bluetooth module.
 
-=head1 IMPORTANT CONSTANTS
+=head1 MANUAL
 
-All of the following constants are exported in to your namespace by
-default, except for the OPCODES.
+There is a manual for this module with an introduction, tutorials, plugins,
+FAQ, etc.  See L<LEGO::NXT::Manual>.
 
-=head2 RET and NORET
+=head1 SUPPORT
 
-For each request of the NXT, you must specify whether you want the NXT to
-send a return value.
+If you would like to get some help join the #lego-nxt IRC chat room
+on the MagNET IRC network (the official perl IRC network).  More
+information at:
 
- $NXT_RET
- $NXT_NORET
+L<http://www.irc.perl.org/>
 
-Use $NXT_RET only when you really need a return value as it does have some
-overhead because it has do do a second request to retrieve response
-data from NXT and then parses that data.
+=head1 PLUGINS
 
-=cut
+LEGO::NXT supports the ability to load plugins.
 
-my $NXT_RET   = 0x00;
-my $NXT_NORET = 0x80;
+  use LEGO::NXT qw( Scorpion );
 
-push @EXPORT, qw( $NXT_RET $NXT_NORET );
+Plugins provide higher level and more sophisticated means of handling
+your NXT.  Likely you will want to use a plugin if you want to control
+your NXT as the methods in LEGO::NXT itself are very low level and
+tedious to use by themselves.
 
-=head2 IO PORT
-
-  $NXT_SENSOR1
-  $NXT_SENSOR2
-  $NXT_SENSOR3
-  $NXT_SENSOR4
-  
-  $NXT_MOTOR_A
-  $NXT_MOTOR_B
-  $NXT_MOTOR_C
-  $NXT_MOTOR_ALL
+Please see L<LEGO::NXT::Manual::Plugins> for more details about how to
+use plugins (and write your own!) as well as what plugins are available
+to you.
 
 =cut
-
-my $NXT_SENSOR_1  = 0x00;
-my $NXT_SENSOR_2  = 0x01;
-my $NXT_SENSOR_3  = 0x02; 
-my $NXT_SENSOR_4  = 0x03;
-
-my $NXT_MOTOR_A   = 0x00;
-my $NXT_MOTOR_B   = 0x01;
-my $NXT_MOTOR_C   = 0x02;
-my $NXT_MOTOR_ALL = 0xFF;
-
-push @EXPORT, qw(
-    $NXT_SENSOR_1 $NXT_SENSOR_2 $NXT_SENSOR_3 $NXT_SENSOR_4
-    $NXT_MOTOR_A $NXT_MOTOR_B $NXT_MOTOR_C $NXT_MOTOR_ALL
-);
-
-=head2 MOTOR CONTROL CONSTANTS
-
-Output mode:
-
-  $NXT_MOTOR_ON
-  $NXT_BRAKE
-  $NXT_REGULATED
-
-Output regulation modes:
-
-  $NXT_REGULATION_MODE_IDLE
-  $NXT_REGULATION_MODE_MOTOR_SPEED
-  $NXT_REGULATION_MODE_MOTOR_SYNC
-
-Output run states:
-
-  $NXT_MOTOR_RUN_STATE_IDLE
-  $NXT_MOTOR_RUN_STATE_RAMPUP
-  $NXT_MOTOR_RUN_STATE_RUNNING
-  $NXT_MOTOR_RUN_STATE_RAMPDOWN
-
-=cut
-
-my $NXT_MOTOR_ON  = 0x01;
-my $NXT_BRAKE     = 0x02;
-my $NXT_REGULATED = 0x04;
-
-my $NXT_REGULATION_MODE_IDLE        = 0x00;
-my $NXT_REGULATION_MODE_MOTOR_SPEED = 0x01;
-my $NXT_REGULATION_MODE_MOTOR_SYNC  = 0x02;
-
-my $NXT_MOTOR_RUN_STATE_IDLE        = 0x00;
-my $NXT_MOTOR_RUN_STATE_RAMPUP      = 0x10;
-my $NXT_MOTOR_RUN_STATE_RUNNING     = 0x20;
-my $NXT_MOTOR_RUN_STATE_RAMPDOWN    = 0x40;
-
-push @EXPORT, qw(
-  $NXT_MOTOR_ON $NXT_BRAKE $NXT_REGULATED
-  $NXT_REGULATION_MODE_IDLE $NXT_REGULATION_MODE_MOTOR_SPEED $NXT_REGULATION_MODE_MOTOR_SYNC
-  $NXT_MOTOR_RUN_STATE_IDLE $NXT_MOTOR_RUN_STATE_RAMPUP $NXT_MOTOR_RUN_STATE_RUNNING $NXT_MOTOR_RUN_STATE_RAMPDOWN
-);
-
-=head2 SENSOR TYPE
-
-  $NXT_NO_SENSOR
-  $NXT_SWITCH
-  $NXT_TEMPERATURE
-  $NXT_REFLECTION
-  $NXT_ANGLE
-  $NXT_LIGHT_ACTIVE
-  $NXT_LIGHT_INACTIVE
-  $NXT_SOUND_DB
-  $NXT_SOUND_DBA
-  $NXT_CUSTOM
-  $NXT_LOW_SPEED
-  $NXT_LOW_SPEED_9V
-  $NXT_NO_OF_SENSOR_TYPES
-
-=cut
-
-my $NXT_NO_SENSOR           = 0x00;
-my $NXT_SWITCH              = 0x01;
-my $NXT_TEMPERATURE         = 0x02;
-my $NXT_REFLECTION          = 0x03;
-my $NXT_ANGLE               = 0x04;
-my $NXT_LIGHT_ACTIVE        = 0x05;
-my $NXT_LIGHT_INACTIVE      = 0x06;
-my $NXT_SOUND_DB            = 0x07;
-my $NXT_SOUND_DBA           = 0x08;
-my $NXT_CUSTOM              = 0x09;
-my $NXT_LOW_SPEED           = 0x0A;
-my $NXT_LOW_SPEED_9V        = 0x0B;
-my $NXT_NO_OF_SENSOR_TYPES  = 0x0C;
-
-push @EXPORT, qw(
-  $NXT_NO_SENSOR $NXT_SWITCH $NXT_TEMPERATURE $NXT_REFLECTION $NXT_ANGLE
-  $NXT_LIGHT_ACTIVE $NXT_LIGHT_INACTIVE $NXT_SOUND_DB $NXT_SOUND_DBA
-  $NXT_CUSTOM $NXT_LOW_SPEED $NXT_LOW_SPEED_9V $NXT_NO_OF_SENSOR_TYPES
-);
-
-=head2 SENSOR MODE
-
-  $NXT_RAW_MODE
-  $NXT_BOOLEAN_MODE
-  $NXT_TRANSITION_CNT_MODE
-  
-  $NXT_PERIOD_COUNTER_MODE
-  $NXT_PCT_FULL_SCALE_MODE
-  
-  $NXT_CELSIUS_MODE
-  $NXT_FAHRENHEIT_MODE
-  
-  $NXT_ANGLE_STEPS_MODE
-  $NXT_SLOPE_MASK
-  $NXT_MODE_MASK
-
-=cut
-
-my $NXT_RAW_MODE            = 0x00;
-my $NXT_BOOLEAN_MODE        = 0x20;
-my $NXT_TRANSITION_CNT_MODE = 0x40;
-
-my $NXT_PERIOD_COUNTER_MODE = 0x60;
-my $NXT_PCT_FULL_SCALE_MODE = 0x80;
-
-my $NXT_CELSIUS_MODE        = 0xA0;
-my $NXT_FAHRENHEIT_MODE     = 0xC0;
-
-my $NXT_ANGLE_STEPS_MODE    = 0xE0;
-my $NXT_SLOPE_MASK          = 0x1F;
-my $NXT_MODE_MASK           = 0xE0;
-
-push @EXPORT, qw(
-  $NXT_RAW_MODE $NXT_BOOLEAN_MODE $NXT_TRANSITION_CNT_MODE
-  $NXT_PERIOD_COUNTER_MODE $NXT_PCT_FULL_SCALE_MODE
-  $NXT_CELSIUS_MODE $NXT_FAHRENHEIT_MODE
-  $NXT_ANGLE_STEPS_MODE $NXT_SLOPE_MASK $NXT_MODE_MASK
-);
-
-=head2 OPCODES
-
-These are declared for internal use are not exported.
-
-  $NXT_START_PROGRAM
-  $NXT_STOP_PROGRAM
-  $NXT_PLAY_SOUND_FILE
-  $NXT_PLAY_TONE
-  $NXT_SET_OUTPUT_STATE
-  $NXT_SET_INPUT_MODE
-  $NXT_GET_OUTPUT_STATE
-  $NXT_GET_INPUT_VALUES
-  $NXT_RESET_SCALED_INPUT_VALUE
-  $NXT_MESSAGE_WRITE
-  $NXT_RESET_MOTOR_POSITION
-  $NXT_GET_BATTERY_LEVEL
-  $NXT_STOP_SOUND_PLAYBACK
-  $NXT_KEEP_ALIVE
-  $NXT_LSGET_STATUS
-  $NXT_LSWRITE
-  $NXT_LSREAD
-  $NXT_GET_CURRENT_PROGRAM_NAME
-  $NXT_MESSAGE_READ
-
-=cut
-
-my $NXT_START_PROGRAM            = 0x00;
-my $NXT_STOP_PROGRAM             = 0x01;
-my $NXT_PLAY_SOUND_FILE          = 0x02;
-my $NXT_PLAY_TONE                = 0x03;
-my $NXT_SET_OUTPUT_STATE         = 0x04;
-my $NXT_SET_INPUT_MODE           = 0x05;
-my $NXT_GET_OUTPUT_STATE         = 0x06;
-my $NXT_GET_INPUT_VALUES         = 0x07;
-my $NXT_RESET_SCALED_INPUT_VALUE = 0x08;
-my $NXT_MESSAGE_WRITE            = 0x09;
-my $NXT_RESET_MOTOR_POSITION     = 0x0A;
-my $NXT_GET_BATTERY_LEVEL        = 0x0B;
-my $NXT_STOP_SOUND_PLAYBACK      = 0x0C;
-my $NXT_KEEP_ALIVE               = 0x0D;
-my $NXT_LSGET_STATUS             = 0x0E;
-my $NXT_LSWRITE                  = 0x0F;
-my $NXT_LSREAD                   = 0x10;
-my $NXT_GET_CURRENT_PROGRAM_NAME = 0x11;
-my $NXT_MESSAGE_READ             = 0x13;
 
 my %error_codes = (
   0x20 => "Pending communication transaction in progress",
@@ -368,9 +183,13 @@ sub get_ultrasound_measurement_units
 
 =head2 get_ultrasound_measurement_byte
 
-  $nxt->get_ultrasound_measurement_byte($NXT_SENSOR_4);
+  $nxt->get_ultrasound_measurement_byte($NXT_SENSOR_4,$byte);
 
-Returns the distance reading from the NXT
+Returns the distance reading from the NXT from register $byte.
+$byte should be a value 0-7 indicating the measurement register 
+in the ultrasound sensor. In continuous measurement mode, 
+measurements are stored in register 0 only, however in one-shot mode,
+each time one-shot is called a value will be stored in a new register.
 
 =cut
 
@@ -1298,6 +1117,28 @@ sub _parse_generic_ret
   };
 }
 
+=head2 import
+
+This is a custom import method for supporting
+plugins.  See L<LEGO::NXT::Manual::Plugins>.
+
+=cut
+
+sub import {
+  my $class = shift;
+  foreach my $plugin (@_) {
+    $plugin = $class . '::' . $plugin;
+
+    # Skip out if this module is already in @ISA.
+    next if (grep { ($_ eq $plugin) ? 1 : () } @ISA);
+
+    eval("require $plugin");
+    die("Problem loading $plugin: $@") if($@);
+
+    push @ISA, $plugin;
+  }
+}
+
 1;
 __END__
 
@@ -1320,5 +1161,7 @@ The LEGO::NXT module is Copyright (c) 2006 Michael Collins. USA.
 All rights reserved.
 
 =head1 SUPPORT / WARRANTY
+
+See Additional Resources at L<http://nxt.ivorycity.com>
 
 LEGO::NXT is free open source software. IT COMES WITHOUT WARRANTY OF ANY KIND.

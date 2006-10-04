@@ -1,4 +1,5 @@
 use LEGO::NXT;
+use LEGO::NXT::Constants qw(:DEFAULT);
 use Data::Dumper;
 use Net::Bluetooth;
 use strict;
